@@ -29,6 +29,7 @@ func main() {
 	http.HandleFunc("/bar", bar)
 	http.HandleFunc("/signup", signup)
 	http.HandleFunc("/login", login)
+	http.HandleFunc("/logout", logout)
 	http.Handle("/favicon.ico", http.NotFoundHandler())
 	http.ListenAndServe(":8080", nil)
 }
@@ -93,7 +94,7 @@ func login(w http.ResponseWriter, req *http.Request) {
 		http.Redirect(w, req, "/", http.StatusSeeOther)
 		return
 	}
-
+	var u user
 	// process form submission
 	if req.Method == http.MethodPost {
 		un := req.FormValue("username")
@@ -122,5 +123,20 @@ func login(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	tpl.ExecuteTemplate(w, "login.gohtml", nil)
+	tpl.ExecuteTemplate(w, "login.gohtml", u)
+}
+
+func logout(w http.ResponseWriter, req *http.Request) {
+	if !alreadyLoggedIn(req) {
+		http.Redirect(w, req, "/", http.StatusSeeOther)
+		return
+	}
+	c, _ := req.Cookie("session")
+	// delete the session
+	delete(dbSessions, c.Value)
+	// remove the cookie
+	c.MaxAge = -1
+	http.SetCookie(w, c)
+
+	http.Redirect(w, req, "/login", http.StatusSeeOther)
 }
