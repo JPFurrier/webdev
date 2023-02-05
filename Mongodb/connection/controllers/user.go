@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/julienschmidt/httprouter"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 	"net/http"
 	"webdev/Mongodb/connection/models"
 )
@@ -19,11 +20,25 @@ func NewUserController(s *mgo.Session) *UserController {
 }
 
 func (uc UserController) GetUser(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	u := models.User{
-		Name:   "James Bond",
-		Gender: "male",
-		Age:    32,
-		Id:     p.ByName("id"),
+	//grab iD
+	id := p.ByName("id")
+
+	//Verify id is ObjectId hex representation, otherwise return status not found
+	if !bson.IsObjectIdHex(id) {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	//ObjectIdHex returns an ObjectId from the provide hex representation.
+	oid := bson.ObjectIdHex(id)
+
+	//Composite literal
+	u := models.User{}
+
+	//fetch user
+	if err := uc.session.DB("go-web-dev-db").C("users").FindId(oid).One(&u); err != nil {
+		w.WriteHeader(404)
+		return
 	}
 
 	uj, err := json.Marshal(u)
@@ -40,7 +55,11 @@ func (uc UserController) CreateUser(w http.ResponseWriter, r *http.Request, _ ht
 
 	json.NewDecoder(r.Body).Decode(&u)
 
-	u.Id = "007"
+	//create bson ID
+	u.Id = bson.NewObjectId()
+
+	//store the user in mongodb
+	uc.session.DB("go-web-dev-db").C("users").Insert(u)
 
 	uj, err := json.Marshal(u)
 	if err != nil {
@@ -48,12 +67,27 @@ func (uc UserController) CreateUser(w http.ResponseWriter, r *http.Request, _ ht
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusCreated)
 	fmt.Fprintf(w, "%s\n", uj)
 }
 
 func (uc UserController) DeleteUser(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	//TODO: only write code to delete user
+	//get iD
+	id := p.ByName("id")
+
+	if !bson.IsObjectIdHex(id) {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	oid := bson.ObjectIdHex(id)
+
+	//delete user
+	if err := uc.session.DB("go-web-dev-db").C("users").RemoveId(oid); err != nil {
+		w.WriteHeader(404)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "write code to delete user\n")
+	fmt.Fprintf(w, "Deleted user", oid, "\n")
 }
