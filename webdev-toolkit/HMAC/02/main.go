@@ -67,7 +67,7 @@ func auth(w http.ResponseWriter, req *http.Request) {
 	codeCheck := getCode(email)
 
 	if codeRcvd != codeCheck {
-		fmt.Println("HMAC codes didn't match")
+		fmt.Println("HMAC codes did not match")
 		fmt.Println(codeRcvd)
 		fmt.Println(codeCheck)
 		http.Redirect(w, req, "/", http.StatusSeeOther)
